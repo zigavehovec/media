@@ -18,6 +18,7 @@ package androidx.media3.demo.main;
 import android.content.Context;
 import android.net.http.HttpEngine;
 import android.os.Build;
+import android.os.Looper;
 import android.os.ext.SdkExtensions;
 import androidx.annotation.OptIn;
 import androidx.media3.database.DatabaseProvider;
@@ -33,14 +34,19 @@ import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.datasource.cronet.CronetDataSource;
 import androidx.media3.datasource.cronet.CronetUtil;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.offline.DownloadManager;
 import androidx.media3.exoplayer.offline.DownloadNotificationHelper;
+import androidx.media3.exoplayer.text.TextOutput;
+import androidx.media3.exoplayer.text.TextRenderer;
 import java.io.File;
 import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
+import java.util.ArrayList;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.chromium.net.CronetEngine;
@@ -79,15 +85,27 @@ public final class DemoUtil {
 
   @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
   public static RenderersFactory buildRenderersFactory(
-      Context context, boolean preferExtensionRenderer) {
+      Context context, boolean preferExtensionRenderer, boolean enableLegacyParsing) {
     @DefaultRenderersFactory.ExtensionRendererMode
     int extensionRendererMode =
         useExtensionRenderers()
             ? (preferExtensionRenderer
-                ? DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
-                : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            ? DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+            : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF;
-    return new DefaultRenderersFactory(context.getApplicationContext())
+    return new DefaultRenderersFactory(context.getApplicationContext()) {
+      @Override
+      protected void buildTextRenderers(Context context, TextOutput output, Looper outputLooper,
+          @ExtensionRendererMode int extensionRendererMode, ArrayList<Renderer> out) {
+        super.buildTextRenderers(context, output, outputLooper, extensionRendererMode, out);
+        for (int i = 0; i < out.size(); i++) {
+          Renderer renderer = out.get(i);
+          if (renderer instanceof TextRenderer) {
+            ((TextRenderer) renderer).experimentalSetLegacyDecodingEnabled(enableLegacyParsing);
+          }
+        }
+      }
+    }
         .setExtensionRendererMode(extensionRendererMode);
   }
 

@@ -3,6 +3,10 @@
     "name": "Clear DASH",
     "samples": [
       {
+        "name": "Art Of Motion",
+        "uri": "https://cdn.bitmovin.com/content/assets/MI201109210084/mpds/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.mpd"
+      },
+      {
         "name": "HD (MP4, H264)",
         "uri": "https://storage.googleapis.com/wvmedia/clear/h264/tears/tears.mpd"
       },

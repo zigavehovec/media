@@ -17,6 +17,7 @@ package androidx.media3.demo.main;
 
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Pair;
@@ -34,6 +35,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.ErrorMessageProvider;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.TrackSelectionParameters;
@@ -56,6 +58,7 @@ import androidx.media3.exoplayer.source.ads.AdsLoader;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.ui.PlayerView;
+import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -88,6 +91,7 @@ public class PlayerActivity extends AppCompatActivity
   private boolean startAutoPlay;
   private int startItemIndex;
   private long startPosition;
+  private boolean enableLegacySubtitleParsing = false;
 
   // For ad playback only.
 
@@ -261,7 +265,6 @@ public class PlayerActivity extends AppCompatActivity
   protected boolean initializePlayer() {
     Intent intent = getIntent();
     if (player == null) {
-
       mediaItems = createMediaItems(intent);
       if (mediaItems.isEmpty()) {
         return false;
@@ -316,6 +319,7 @@ public class PlayerActivity extends AppCompatActivity
             new DefaultMediaSourceFactory(/* context= */ this)
                 .setDataSourceFactory(dataSourceFactory));
     return new DefaultMediaSourceFactory(/* context= */ this)
+        .experimentalParseSubtitlesDuringExtraction(!enableLegacySubtitleParsing)
         .setDataSourceFactory(dataSourceFactory)
         .setDrmSessionManagerProvider(drmSessionManagerProvider)
         .setLocalAdInsertionComponents(
@@ -327,7 +331,7 @@ public class PlayerActivity extends AppCompatActivity
   private void setRenderersFactory(
       ExoPlayer.Builder playerBuilder, boolean preferExtensionDecoders) {
     RenderersFactory renderersFactory =
-        DemoUtil.buildRenderersFactory(/* context= */ this, preferExtensionDecoders);
+        DemoUtil.buildRenderersFactory(/* context= */ this, preferExtensionDecoders, enableLegacySubtitleParsing);
     playerBuilder.setRenderersFactory(renderersFactory);
   }
 
@@ -540,9 +544,7 @@ public class PlayerActivity extends AppCompatActivity
   private static List<MediaItem> createMediaItems(Intent intent, DownloadTracker downloadTracker) {
     List<MediaItem> mediaItems = new ArrayList<>();
     for (MediaItem item : IntentUtil.createMediaItemsFromIntent(intent)) {
-      mediaItems.add(
-          maybeSetDownloadProperties(
-              item, downloadTracker.getDownloadRequest(item.localConfiguration.uri)));
+      mediaItems.add(addSubtitles(item));
     }
     return mediaItems;
   }
@@ -566,6 +568,22 @@ public class PlayerActivity extends AppCompatActivity
       builder.setDrmConfiguration(
           drmConfiguration.buildUpon().setKeySetId(downloadRequest.keySetId).build());
     }
+    return builder.build();
+  }
+
+  private static MediaItem addSubtitles(MediaItem item) {
+    MediaItem.Builder builder = item.buildUpon();
+    Uri subtitlesUri = Uri.parse("https://demo.bitmovin.com/public/subtitles.xml");
+    builder.setSubtitleConfigurations(
+        Lists.newArrayList(
+            new MediaItem.SubtitleConfiguration.Builder(subtitlesUri)
+                .setMimeType(MimeTypes.APPLICATION_TTML)
+                .setLanguage("en")
+                .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                .build()
+        )
+    );
+
     return builder.build();
   }
 }
